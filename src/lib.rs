@@ -814,7 +814,7 @@ mod benches {
         let (hrp, data) = crate::decode(&addr).expect("address is well formed");
 
         bh.iter(|| {
-            let s = crate::encode::<Bech32>(hrp, &data).expect("failed to encode");
+            let s = crate::encode::<Bech32>(&hrp, &data).expect("failed to encode");
             black_box(&s);
         });
     }
@@ -828,7 +828,7 @@ mod benches {
 
         bh.iter(|| {
             let res =
-                crate::encode_to_fmt::<Bech32, _>(&mut buf, hrp, &data).expect("failed to encode");
+                crate::encode_to_fmt::<Bech32, _>(&mut buf, &hrp, &data).expect("failed to encode");
             black_box(&res);
         });
     }
@@ -854,7 +854,7 @@ mod benches {
 
         bh.iter(|| {
             let res =
-                crate::encode_to_fmt::<Bech32, _>(&mut buf, hrp, &data).expect("failed to encode");
+                crate::encode_to_fmt::<Bech32, _>(&mut buf, &hrp, &data).expect("failed to encode");
             black_box(&res);
         });
     }
