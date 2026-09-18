@@ -27,7 +27,7 @@ fn main() -> ! {
     let data = [0x00u8, 0x01, 0x02];
     let hrp = Hrp::parse("bech32").expect("failed to parse hrp");
 
-    let encoded = bech32::encode::<Bech32m>(hrp, &data).expect("failed to encode");
+    let encoded = bech32::encode::<Bech32m>(&hrp, &data).expect("failed to encode");
     test(encoded == "bech321qqqsyktsg0l".to_string());
 
     hprintln!("{}", encoded).unwrap();

@@ -23,7 +23,7 @@ fn main() -> ! {
     let data = [0x00u8, 0x01, 0x02];
     let hrp = Hrp::parse("bech32").expect("failed to parse hrp");
 
-    bech32::encode_to_fmt::<Bech32, _>(&mut encoded, hrp, &data)
+    bech32::encode_to_fmt::<Bech32, _>(&mut encoded, &hrp, &data)
         .expect("failed to encode");
     test(&*encoded == "bech321qqqsyrhqy2a");
 
@@ -33,7 +33,7 @@ fn main() -> ! {
         CheckedHrpstring::new::<Bech32>(&encoded).expect("failed to construct CheckedHrpstring");
     let iter = unchecked.byte_iter();
 
-    test(unchecked.hrp() == hrp);
+    test(unchecked.hrp() == &hrp);
     test(iter.eq(data.iter().map(|&b| b)));
 
     debug::exit(debug::EXIT_SUCCESS);

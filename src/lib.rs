@@ -41,16 +41,16 @@
 //!
 //! // Encode arbitrary data using "abc" as the human-readable part and append a bech32m checksum.
 //! let hrp = Hrp::parse("abc").expect("valid hrp");
-//! let string = bech32::encode::<Bech32m>(hrp, &DATA).expect("failed to encode string");
+//! let string = bech32::encode::<Bech32m>(&hrp, &DATA).expect("failed to encode string");
 //! assert_eq!(string, STRING);
 //!
 //! // Encode arbitrary data as a Bitcoin taproot address.
-//! let taproot_address = segwit::encode(hrp::BC, segwit::VERSION_1, &DATA).expect("valid witness version and program");
+//! let taproot_address = segwit::encode(&hrp::BC, segwit::VERSION_1, &DATA).expect("valid witness version and program");
 //! assert_eq!(taproot_address, TAP_ADDR);
 //!
 //! // No-alloc: Encode without allocating (ignoring that String::new() allocates :).
 //! let mut buf = String::new();
-//! bech32::encode_to_fmt::<Bech32m, String>(&mut buf, hrp, &DATA).expect("failed to encode to buffer");
+//! bech32::encode_to_fmt::<Bech32m, String>(&mut buf, &hrp, &DATA).expect("failed to encode to buffer");
 //! assert_eq!(buf, STRING);
 //! # }
 //! ```
@@ -81,7 +81,7 @@
 //!
 //! // No-alloc: Decode a bech32m checksummed address without allocating.
 //! let p = CheckedHrpstring::new::<Bech32m>(&STRING).expect("failed to parse string");
-//! assert_eq!(hrp, p.hrp());
+//! assert_eq!(&hrp, p.hrp());
 //! assert!(p.byte_iter().eq(DATA.iter().map(|&b| b))); // We yield bytes not references.
 //!
 //! // No-alloc: Decode a taproot address without allocating.
@@ -229,7 +229,8 @@ pub fn decode(s: &str) -> Result<(Hrp, Vec<u8>), DecodeError> {
     // length and since it is the same as `Bech32` we can use either here.
     let checked = unchecked.remove_checksum::<Bech32m>();
 
-    Ok((checked.hrp(), checked.byte_iter().collect()))
+    let data = checked.byte_iter().collect();
+    Ok((checked.into_hrp(), data))
 }
 
 /// Encodes `data` as a lowercase bech32 encoded string.
@@ -238,7 +239,7 @@ pub fn decode(s: &str) -> Result<(Hrp, Vec<u8>), DecodeError> {
 /// `Ck` algorithm (`NoChecksum` to exclude checksum all together).
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn encode<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<String, EncodeError> {
+pub fn encode<Ck: Checksum>(hrp: &Hrp, data: &[u8]) -> Result<String, EncodeError> {
     encode_lower::<Ck>(hrp, data)
 }
 
@@ -248,7 +249,7 @@ pub fn encode<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<String, EncodeError
 /// `Ck` algorithm (`NoChecksum` to exclude checksum all together).
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn encode_lower<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<String, EncodeError> {
+pub fn encode_lower<Ck: Checksum>(hrp: &Hrp, data: &[u8]) -> Result<String, EncodeError> {
     let mut buf = String::new();
     encode_lower_to_fmt::<Ck, String>(&mut buf, hrp, data)?;
     Ok(buf)
@@ -260,7 +261,7 @@ pub fn encode_lower<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<String, Encod
 /// `Ck` algorithm (`NoChecksum` to exclude checksum all together).
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn encode_upper<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<String, EncodeError> {
+pub fn encode_upper<Ck: Checksum>(hrp: &Hrp, data: &[u8]) -> Result<String, EncodeError> {
     let mut buf = String::new();
     encode_upper_to_fmt::<Ck, String>(&mut buf, hrp, data)?;
     Ok(buf)
@@ -273,7 +274,7 @@ pub fn encode_upper<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<String, Encod
 #[inline]
 pub fn encode_to_fmt<Ck: Checksum, W: fmt::Write>(
     fmt: &mut W,
-    hrp: Hrp,
+    hrp: &Hrp,
     data: &[u8],
 ) -> Result<(), EncodeError> {
     encode_lower_to_fmt::<Ck, W>(fmt, hrp, data)
@@ -286,7 +287,7 @@ pub fn encode_to_fmt<Ck: Checksum, W: fmt::Write>(
 #[inline]
 pub fn encode_lower_to_fmt<Ck: Checksum, W: fmt::Write>(
     fmt: &mut W,
-    hrp: Hrp,
+    hrp: &Hrp,
     data: &[u8],
 ) -> Result<(), EncodeError> {
     let _ = encoded_length::<Ck>(hrp, data)?;
@@ -295,7 +296,7 @@ pub fn encode_lower_to_fmt<Ck: Checksum, W: fmt::Write>(
     let mut pos = 0;
 
     let iter = data.iter().copied().bytes_to_fes();
-    let chars = iter.with_checksum::<Ck>(&hrp).chars();
+    let chars = iter.with_checksum::<Ck>(hrp).chars();
 
     for c in chars {
         buf[pos] = c as u8;
@@ -321,7 +322,7 @@ pub fn encode_lower_to_fmt<Ck: Checksum, W: fmt::Write>(
 #[inline]
 pub fn encode_upper_to_fmt<Ck: Checksum, W: fmt::Write>(
     fmt: &mut W,
-    hrp: Hrp,
+    hrp: &Hrp,
     data: &[u8],
 ) -> Result<(), EncodeError> {
     let _ = encoded_length::<Ck>(hrp, data)?;
@@ -330,7 +331,7 @@ pub fn encode_upper_to_fmt<Ck: Checksum, W: fmt::Write>(
     let mut pos = 0;
 
     let iter = data.iter().copied().bytes_to_fes();
-    let chars = iter.with_checksum::<Ck>(&hrp).chars();
+    let chars = iter.with_checksum::<Ck>(hrp).chars();
 
     for c in chars {
         buf[pos] = c.to_ascii_uppercase() as u8;
@@ -358,7 +359,7 @@ pub fn encode_upper_to_fmt<Ck: Checksum, W: fmt::Write>(
 #[inline]
 pub fn encode_to_writer<Ck: Checksum, W: std::io::Write>(
     w: &mut W,
-    hrp: Hrp,
+    hrp: &Hrp,
     data: &[u8],
 ) -> Result<(), EncodeIoError> {
     encode_lower_to_writer::<Ck, W>(w, hrp, data)
@@ -374,7 +375,7 @@ pub fn encode_to_writer<Ck: Checksum, W: std::io::Write>(
 #[inline]
 pub fn encode_lower_to_writer<Ck: Checksum, W: std::io::Write>(
     w: &mut W,
-    hrp: Hrp,
+    hrp: &Hrp,
     data: &[u8],
 ) -> Result<(), EncodeIoError> {
     let _ = encoded_length::<Ck>(hrp, data)?;
@@ -383,7 +384,7 @@ pub fn encode_lower_to_writer<Ck: Checksum, W: std::io::Write>(
     let mut pos = 0;
 
     let iter = data.iter().copied().bytes_to_fes();
-    let chars = iter.with_checksum::<Ck>(&hrp).chars();
+    let chars = iter.with_checksum::<Ck>(hrp).chars();
 
     for c in chars {
         buf[pos] = c as u8;
@@ -409,7 +410,7 @@ pub fn encode_lower_to_writer<Ck: Checksum, W: std::io::Write>(
 #[inline]
 pub fn encode_upper_to_writer<Ck: Checksum, W: std::io::Write>(
     w: &mut W,
-    hrp: Hrp,
+    hrp: &Hrp,
     data: &[u8],
 ) -> Result<(), EncodeIoError> {
     let _ = encoded_length::<Ck>(hrp, data)?;
@@ -418,7 +419,7 @@ pub fn encode_upper_to_writer<Ck: Checksum, W: std::io::Write>(
     let mut pos = 0;
 
     let iter = data.iter().copied().bytes_to_fes();
-    let chars = iter.with_checksum::<Ck>(&hrp).chars();
+    let chars = iter.with_checksum::<Ck>(hrp).chars();
 
     for c in chars {
         buf[pos] = c.to_ascii_uppercase() as u8;
@@ -443,7 +444,7 @@ pub fn encode_upper_to_writer<Ck: Checksum, W: std::io::Write>(
 ///
 /// `Ok(encoded_string_length)` if the encoded length is less than or equal to `Ck::CODE_LENGTH`
 /// otherwise a [`CodeLengthError`] containing the encoded length and the maximum allowed.
-pub fn encoded_length<Ck: Checksum>(hrp: Hrp, data: &[u8]) -> Result<usize, CodeLengthError> {
+pub fn encoded_length<Ck: Checksum>(hrp: &Hrp, data: &[u8]) -> Result<usize, CodeLengthError> {
     let iter = data.iter().copied().bytes_to_fes();
     let len = hrp
         .len()
@@ -612,7 +613,7 @@ mod tests {
         assert!(!decode_err.to_string().is_empty());
 
         let too_long_data = [0_u8; 632];
-        let encode_err = encode::<Bech32m>(Hrp::parse_unchecked("abcde"), &too_long_data)
+        let encode_err = encode::<Bech32m>(&Hrp::parse_unchecked("abcde"), &too_long_data)
             .expect_err("too long error expected");
         assert!(!encode_err.to_string().is_empty());
 
@@ -635,7 +636,7 @@ mod tests {
 
             let io_err = encode_to_writer::<Bech32, _>(
                 &mut BrokenWriter,
-                Hrp::parse_unchecked("test"),
+                &Hrp::parse_unchecked("test"),
                 &DATA,
             )
             .expect_err("writer error expected");
@@ -647,7 +648,7 @@ mod tests {
     #[test]
     fn encode_bech32m() {
         let hrp = Hrp::parse_unchecked("test");
-        let got = encode::<Bech32m>(hrp, &DATA).expect("failed to encode");
+        let got = encode::<Bech32m>(&hrp, &DATA).expect("failed to encode");
         let want = "test1lu08d6qejxtdg4y5r3zarvary0c5xw7kmz4lky";
         assert_eq!(got, want);
     }
@@ -655,7 +656,7 @@ mod tests {
     #[test]
     fn encode_bech32_lower() {
         let hrp = Hrp::parse_unchecked("test");
-        let got = encode_lower::<Bech32>(hrp, &DATA).expect("failed to encode");
+        let got = encode_lower::<Bech32>(&hrp, &DATA).expect("failed to encode");
         let want = "test1lu08d6qejxtdg4y5r3zarvary0c5xw7kw79nnx";
         assert_eq!(got, want);
     }
@@ -665,7 +666,7 @@ mod tests {
     fn encode_bech32_lower_to_writer() {
         let hrp = Hrp::parse_unchecked("test");
         let mut buf = Vec::new();
-        encode_lower_to_writer::<Bech32, _>(&mut buf, hrp, &DATA).expect("failed to encode");
+        encode_lower_to_writer::<Bech32, _>(&mut buf, &hrp, &DATA).expect("failed to encode");
 
         let got = std::str::from_utf8(&buf).expect("ascii is valid utf8");
         let want = "test1lu08d6qejxtdg4y5r3zarvary0c5xw7kw79nnx";
@@ -675,7 +676,7 @@ mod tests {
     #[test]
     fn encode_bech32_upper() {
         let hrp = Hrp::parse_unchecked("test");
-        let got = encode_upper::<Bech32>(hrp, &DATA).expect("failed to encode");
+        let got = encode_upper::<Bech32>(&hrp, &DATA).expect("failed to encode");
         let want = "TEST1LU08D6QEJXTDG4Y5R3ZARVARY0C5XW7KW79NNX";
         assert_eq!(got, want);
     }
@@ -685,7 +686,7 @@ mod tests {
     fn encode_bech32_upper_to_writer() {
         let hrp = Hrp::parse_unchecked("test");
         let mut buf = Vec::new();
-        encode_upper_to_writer::<Bech32, _>(&mut buf, hrp, &DATA).expect("failed to encode");
+        encode_upper_to_writer::<Bech32, _>(&mut buf, &hrp, &DATA).expect("failed to encode");
 
         let got = std::str::from_utf8(&buf).expect("ascii is valid utf8");
         let want = "TEST1LU08D6QEJXTDG4Y5R3ZARVARY0C5XW7KW79NNX";
@@ -724,9 +725,9 @@ mod tests {
         let s = "test1lu08d6qejxtdg4y5r3zarvary0c5xw7kmz4lky";
         let (hrp, data) = decode(s).expect("valid string");
 
-        let encoded = encode::<Bech32m>(hrp, &data).expect("valid data");
+        let encoded = encode::<Bech32m>(&hrp, &data).expect("valid data");
         let want = encoded.len();
-        let got = encoded_length::<Bech32m>(hrp, &data).expect("encoded length");
+        let got = encoded_length::<Bech32m>(&hrp, &data).expect("encoded length");
 
         assert_eq!(got, want);
     }
@@ -735,7 +736,7 @@ mod tests {
     fn can_encode_maximum_length_string() {
         let data = [0_u8; 632];
         let hrp = Hrp::parse_unchecked("abcd");
-        let s = encode::<Bech32m>(hrp, &data).expect("valid data");
+        let s = encode::<Bech32m>(&hrp, &data).expect("valid data");
         assert_eq!(s.len(), 1023);
     }
 
@@ -744,7 +745,7 @@ mod tests {
         let data = [0_u8; 632];
         let hrp = Hrp::parse_unchecked("abcde");
 
-        match encode::<Bech32m>(hrp, &data) {
+        match encode::<Bech32m>(&hrp, &data) {
             Ok(_) => panic!("false positive"),
             Err(EncodeError::TooLong(CodeLengthError { encoded_length, code_length: _ })) => {
                 assert_eq!(encoded_length, 1024)
@@ -777,7 +778,7 @@ mod tests {
         }
 
         let hrp = Hrp::parse_unchecked("a");
-        encoded_length::<OverflowChecksum>(hrp, &[]).expect_err("length should overflow");
+        encoded_length::<OverflowChecksum>(&hrp, &[]).expect_err("length should overflow");
     }
 }
 #[cfg(bench)]
@@ -839,7 +840,7 @@ mod benches {
         let (hrp, data) = crate::decode(&addr).expect("address is well formed");
 
         bh.iter(|| {
-            let s = crate::encode::<Bech32m>(hrp, &data).expect("failed to encode");
+            let s = crate::encode::<Bech32m>(&hrp, &data).expect("failed to encode");
             black_box(&s);
         });
     }
