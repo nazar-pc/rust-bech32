@@ -291,7 +291,7 @@ where
     /// Creates a new checksummed iterator which adapts a data iterator of field elements by
     /// first inputting the [`Hrp`] and then appending a checksum.
     #[inline]
-    pub fn new_hrp(hrp: Hrp, data: I) -> Self {
+    pub fn new_hrp(hrp: &Hrp, data: I) -> Self {
         let mut ret = Self::new(data);
         ret.checksum_engine.input_hrp(hrp);
         ret

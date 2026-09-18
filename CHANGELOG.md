@@ -1,3 +1,20 @@
+# Unreleased
+
+- Shrink `Hrp` to 8 bytes (pointer sized on targets with pointers wider than 64 bits). Human-readable
+  parts of up to 7 characters are stored inline, longer ones are stored on the heap and thus require
+  the `alloc` feature - without it `Hrp::parse` now returns `Error::TooLong` for anything longer than
+  7 characters.
+
+  This is an API breaking change:
+  - `Hrp` is no longer `Copy`, it is `Clone` instead
+  - `Hrp::len` is no longer `const`
+  - `Hrp::parse_unchecked` is no longer `const`, `Hrp::parse_unchecked_inline` is the const version
+    limited to human-readable parts that are stored inline
+  - Functions that used to take `Hrp` by value now take `&Hrp`
+  - `UncheckedHrpstring::hrp`, `CheckedHrpstring::hrp` and `SegwitHrpstring::hrp` return `&Hrp`,
+    `into_hrp` returns the owned `Hrp`
+  - `checksum::Engine::input_hrp` and `Checksummed::new_hrp` take `&Hrp`
+
 # 0.12.0 - 2024-10-27
 
 This release adds error correction.

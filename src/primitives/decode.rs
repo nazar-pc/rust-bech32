@@ -66,7 +66,7 @@
 //! let address = "bc1pdp43hj65vxw49rts6kcw35u6r6tgzguyr03vvveeewjqpn05efzq7un9w0";
 //! let segwit = SegwitHrpstring::new(address).expect("valid segwit address");
 //! let _encoded_data = segwit.byte_iter();
-//! assert_eq!(segwit.hrp(), Hrp::parse("bc").unwrap());
+//! assert_eq!(segwit.hrp(), &Hrp::parse("bc").unwrap());
 //! assert_eq!(segwit.witness_version(), VERSION_1);
 //! ```
 //!
@@ -144,7 +144,11 @@ impl<'s> UncheckedHrpstring<'s> {
 
     /// Returns the human-readable part.
     #[inline]
-    pub fn hrp(&self) -> Hrp { self.hrp }
+    pub fn hrp(&self) -> &Hrp { &self.hrp }
+
+    /// Returns the human-readable part, consuming `self`.
+    #[inline]
+    pub fn into_hrp(self) -> Hrp { self.hrp }
 
     /// Returns the data part as ASCII bytes i.e., everything after the separator '1'.
     ///
@@ -293,7 +297,7 @@ impl<'s> UncheckedHrpstring<'s> {
     pub fn remove_checksum<Ck: Checksum>(self) -> CheckedHrpstring<'s> {
         let end = self.data_part_ascii.len() - Ck::CHECKSUM_LENGTH;
 
-        CheckedHrpstring { hrp: self.hrp(), ascii: &self.data_part_ascii[..end] }
+        CheckedHrpstring { hrp: self.hrp, ascii: &self.data_part_ascii[..end] }
     }
 }
 
@@ -345,7 +349,11 @@ impl<'s> CheckedHrpstring<'s> {
 
     /// Returns the human-readable part.
     #[inline]
-    pub fn hrp(&self) -> Hrp { self.hrp }
+    pub fn hrp(&self) -> &Hrp { &self.hrp }
+
+    /// Returns the human-readable part, consuming `self`.
+    #[inline]
+    pub fn into_hrp(self) -> Hrp { self.hrp }
 
     /// Returns a partial slice of the data part, as ASCII bytes, everything after the separator '1'
     /// before the checksum.
@@ -550,7 +558,7 @@ impl<'s> SegwitHrpstring<'s> {
         // Do additional segwit-specific checks.
         checked.validate_segwit_padding()?;
         checked.validate_witness_program_length(witness_version)?;
-        Ok(SegwitHrpstring { hrp: checked.hrp(), witness_version, ascii: checked.ascii })
+        Ok(SegwitHrpstring { hrp: checked.hrp, witness_version, ascii: checked.ascii })
     }
 
     /// Parses an HRP string, treating the first data character as a witness version.
@@ -590,7 +598,11 @@ impl<'s> SegwitHrpstring<'s> {
 
     /// Returns the human-readable part.
     #[inline]
-    pub fn hrp(&self) -> Hrp { self.hrp }
+    pub fn hrp(&self) -> &Hrp { &self.hrp }
+
+    /// Returns the human-readable part, consuming `self`.
+    #[inline]
+    pub fn into_hrp(self) -> Hrp { self.hrp }
 
     /// Returns the witness version.
     #[inline]
@@ -1197,7 +1209,7 @@ mod tests {
     fn check_hrp_uppercase_returns_lower() {
         let addr = "BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4";
         let unchecked = UncheckedHrpstring::new(addr).expect("failed to parse address");
-        assert_eq!(unchecked.hrp(), Hrp::parse_unchecked("bc"));
+        assert_eq!(unchecked.hrp(), &Hrp::parse_unchecked("bc"));
     }
 
     #[test]
@@ -1207,10 +1219,10 @@ mod tests {
             "an83characterlonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio";
 
         let hrp = Hrp::parse_unchecked(hrps);
-        let s = crate::encode::<Bech32>(hrp, &[]).expect("failed to encode empty buffer");
+        let s = crate::encode::<Bech32>(&hrp, &[]).expect("failed to encode empty buffer");
 
         let unchecked = UncheckedHrpstring::new(&s).expect("failed to parse address");
-        assert_eq!(unchecked.hrp(), hrp);
+        assert_eq!(unchecked.hrp(), &hrp);
     }
 
     #[test]
