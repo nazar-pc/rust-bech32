@@ -17,7 +17,10 @@ use core::iter::FusedIterator;
 use core::{slice, str};
 
 /// Maximum length of the human-readable part, as defined by BIP-173.
+#[cfg(feature = "long-hrp")]
 const MAX_HRP_LEN: usize = 83;
+#[cfg(not(feature = "long-hrp"))]
+const MAX_HRP_LEN: usize = 11;
 
 // Defines HRP constants for the different bitcoin networks.
 // You can also access these at `crate::hrp::BC` etc.
@@ -28,17 +31,26 @@ macro_rules! define_hrp_const {
         pub const $name:ident $size:literal $v:expr;
     ) => {
         #[$doc]
-        pub const $name: Hrp = Hrp { buf: [
-            $v[0], $v[1], $v[2], $v[3],
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ], size: $size };
+        pub const $name: Hrp = Hrp {
+            #[cfg(feature = "long-hrp")]
+            buf: [
+                $v[0], $v[1], $v[2], $v[3],
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+            #[cfg(not(feature = "long-hrp"))]
+            buf: [
+                $v[0], $v[1], $v[2], $v[3],
+                0, 0, 0, 0, 0, 0, 0,
+            ],
+            size: $size,
+        };
     };
 }
 define_hrp_const! {
@@ -60,7 +72,7 @@ pub struct Hrp {
     /// ASCII byte values, guaranteed not to be mixed-case.
     buf: [u8; MAX_HRP_LEN],
     /// Number of characters currently stored in this HRP.
-    size: usize,
+    size: u8,
 }
 
 impl Hrp {
@@ -191,7 +203,7 @@ impl Hrp {
         } else if let Some(err) = byte_formatter.error {
             Err(err)
         } else {
-            Ok(Self { buf: byte_formatter.arr, size: byte_formatter.index })
+            Ok(Self { buf: byte_formatter.arr, size: byte_formatter.index as u8 })
         }
     }
 
@@ -230,12 +242,12 @@ impl Hrp {
 
     /// Returns this human-readable part as bytes.
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] { &self.buf[..self.size] }
+    pub fn as_bytes(&self) -> &[u8] { &self.buf[..usize::from(self.size)] }
 
     /// Returns this human-readable part as str.
     #[inline]
     pub fn as_str(&self) -> &str {
-        str::from_utf8(&self.buf[..self.size]).expect("we only store ASCII bytes")
+        str::from_utf8(&self.buf[..usize::from(self.size)]).expect("we only store ASCII bytes")
     }
 
     /// Creates a byte iterator over the ASCII byte values (ASCII characters) of this HRP.
@@ -243,7 +255,9 @@ impl Hrp {
     /// If an uppercase HRP was parsed during object construction then this iterator will yield
     /// uppercase ASCII `char`s. For lowercase bytes see [`Self::lowercase_byte_iter`]
     #[inline]
-    pub fn byte_iter(&self) -> ByteIter<'_> { ByteIter { iter: self.buf[..self.size].iter() } }
+    pub fn byte_iter(&self) -> ByteIter<'_> {
+        ByteIter { iter: self.buf[..usize::from(self.size)].iter() }
+    }
 
     /// Creates a character iterator over the ASCII characters of this HRP.
     ///
@@ -269,7 +283,7 @@ impl Hrp {
     /// Guaranteed to be between 1 and 83 inclusive.
     #[inline]
     #[allow(clippy::len_without_is_empty)] // HRP is never empty.
-    pub const fn len(&self) -> usize { self.size }
+    pub const fn len(&self) -> usize { self.size as usize }
 
     /// Returns `true` if this HRP is valid according to the bips.
     ///
@@ -522,8 +536,9 @@ mod tests {
         parse_ok_3, "ABCDEFG";
         parse_ok_4, "abc123def";
         parse_ok_5, "ABC123DEF";
-        parse_ok_6, "!\"#$%&'()*+,-./";
-        parse_ok_7, "1234567890";
+        parse_ok_6, "!\"#$%&'()*";
+        parse_ok_7, "+,-./";
+        parse_ok_8, "1234567890";
     }
 
     macro_rules! check_parse_err {
@@ -615,19 +630,20 @@ mod tests {
 
     #[test]
     fn as_str() {
-        let s = "arbitraryhrp";
+        let s = if cfg!(feature = "long-hrp") { "arbitraryhrp" } else { "somehrp" };
         let hrp = Hrp::parse_unchecked(s);
         assert_eq!(hrp.as_str(), s);
     }
 
     #[test]
     fn as_bytes() {
-        let s = "arbitraryhrp";
+        let s = if cfg!(feature = "long-hrp") { "arbitraryhrp" } else { "somehrp" };
         let hrp = Hrp::parse_unchecked(s);
         assert_eq!(hrp.as_bytes(), s.as_bytes());
     }
 
     #[test]
+    #[cfg(feature = "long-hrp")]
     fn parse_display() {
         let hrp = Hrp::parse_display(format_args!("{}_{}", 123, "abc")).unwrap();
         assert_eq!(hrp.as_str(), "123_abc");
@@ -642,6 +658,23 @@ mod tests {
 
         assert_eq!(
             Hrp::parse_display(format_args!("{:83}", 1)),
+            Err(Error::InvalidAsciiByte(b' ')),
+        );
+    }
+
+    #[test]
+    #[cfg(not(feature = "long-hrp"))]
+    fn parse_display() {
+        let hrp = Hrp::parse_display(format_args!("{}_{}", 123, "abc")).unwrap();
+        assert_eq!(hrp.as_str(), "123_abc");
+
+        let hrp = Hrp::parse_display(format_args!("{:011}", 1)).unwrap();
+        assert_eq!(hrp.as_str(), "00000000001");
+
+        assert_eq!(Hrp::parse_display(format_args!("{:012}", 1)), Err(Error::TooLong(12)),);
+
+        assert_eq!(
+            Hrp::parse_display(format_args!("{:11}", 1)),
             Err(Error::InvalidAsciiByte(b' ')),
         );
     }
