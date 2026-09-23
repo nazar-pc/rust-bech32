@@ -137,7 +137,7 @@ impl Hrp {
     pub fn parse_display<T: core::fmt::Display>(data: T) -> Result<Self, Error> {
         struct ByteFormatter {
             arr: [u8; MAX_HRP_LEN],
-            index: usize,
+            index: u8,
             error: Option<Error>,
             has_lower: bool,
             has_upper: bool,
@@ -175,16 +175,16 @@ impl Hrp {
 
                 // However, an invalid length error will take priority over an
                 // invalid character error.
-                if self.index + s.len() > self.arr.len() {
-                    self.error = Some(Error::TooLong(self.index + s.len()));
+                if usize::from(self.index) + s.len() > self.arr.len() {
+                    self.error = Some(Error::TooLong(usize::from(self.index) + s.len()));
                 } else {
                     // Only do the actual copy if we passed the index check.
-                    self.arr[self.index..self.index + s.len()].copy_from_slice(s.as_bytes());
+                    self.arr[usize::from(self.index)..usize::from(self.index) + s.len()].copy_from_slice(s.as_bytes());
                 }
 
                 // Unconditionally update self.index so that in the case of a too-long
                 // string, our error return will reflect the full length.
-                self.index += s.len();
+                self.index += s.len() as u8;
                 Ok(())
             }
         }
@@ -203,7 +203,7 @@ impl Hrp {
         } else if let Some(err) = byte_formatter.error {
             Err(err)
         } else {
-            Ok(Self { buf: byte_formatter.arr, size: byte_formatter.index as u8 })
+            Ok(Self { buf: byte_formatter.arr, size: byte_formatter.index })
         }
     }
 
